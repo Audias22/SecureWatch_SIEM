@@ -1,0 +1,10 @@
+# Configuración con contraseñas reales (usar config/database.example.php como plantilla)
+config/database.php
+
+# Datos generados en el equipo: evidencia, estado del colector, respaldos
+storage/*
+!storage/.htaccess
+!storage/LEEME.txt
+
+*.bak
+*.tar.gz

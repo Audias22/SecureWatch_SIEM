@@ -1,0 +1,1 @@
+Carpeta de evidencia cruda del colector Syslog (no accesible por web).

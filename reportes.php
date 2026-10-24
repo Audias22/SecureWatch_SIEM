@@ -1,0 +1,23 @@
+<?php
+declare(strict_types=1);
+require_once __DIR__.'/includes/auth.php'; require_login();
+$pdo=db();$title='Reportes';
+$from=(string)($_GET['from']??date('Y-m-d',strtotime('-7 days')));$to=(string)($_GET['to']??date('Y-m-d'));
+if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$from))$from=date('Y-m-d',strtotime('-7 days'));
+if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$to))$to=date('Y-m-d');
+$start=$from.' 00:00:00';$end=$to.' 23:59:59';
+function count_range(PDO $pdo,string $sql,string $start,string $end):int{$s=$pdo->prepare($sql);$s->execute([$start,$end]);return(int)$s->fetchColumn();}
+$events=count_range($pdo,'SELECT COUNT(*) FROM events WHERE created_at BETWEEN ? AND ?',$start,$end);
+$alerts=count_range($pdo,'SELECT COUNT(*) FROM alerts WHERE created_at BETWEEN ? AND ?',$start,$end);
+$incidents=count_range($pdo,'SELECT COUNT(*) FROM incidents WHERE created_at BETWEEN ? AND ?',$start,$end);
+$critical=count_range($pdo,"SELECT COUNT(*) FROM alerts WHERE severity='critical' AND created_at BETWEEN ? AND ?",$start,$end);
+$byRule=$pdo->prepare('SELECT r.name,r.severity,COUNT(a.id) total FROM rules r JOIN alerts a ON a.rule_id=r.id WHERE a.created_at BETWEEN ? AND ? GROUP BY r.id,r.name,r.severity ORDER BY total DESC');$byRule->execute([$start,$end]);$byRule=$byRule->fetchAll();
+$topIp=$pdo->prepare('SELECT e.ip_address,COUNT(DISTINCT a.id) alerts,COUNT(DISTINCT e.id) events FROM events e LEFT JOIN alert_events ae ON ae.event_id=e.id LEFT JOIN alerts a ON a.id=ae.alert_id WHERE e.created_at BETWEEN ? AND ? GROUP BY e.ip_address ORDER BY alerts DESC,events DESC LIMIT 10');$topIp->execute([$start,$end]);$topIp=$topIp->fetchAll();
+$incStatus=$pdo->prepare('SELECT status,COUNT(*) total FROM incidents WHERE created_at BETWEEN ? AND ? GROUP BY status ORDER BY total DESC');$incStatus->execute([$start,$end]);$incStatus=$incStatus->fetchAll();
+require __DIR__.'/includes/header.php'; ?>
+<div class="page-head"><div><h2>Reporte de auditoría</h2><p>Resumen de eventos, detecciones e incidentes por período.</p></div><a class="btn btn-outline-info" target="_blank" href="reporte_imprimir.php?from=<?= esc($from) ?>&to=<?= esc($to) ?>">Exportar / guardar PDF</a></div>
+<div class="panel mb-3"><form class="row g-2 align-items-end"><div class="col-md-3"><label class="form-label">Desde</label><input class="form-control" type="date" name="from" value="<?= esc($from) ?>"></div><div class="col-md-3"><label class="form-label">Hasta</label><input class="form-control" type="date" name="to" value="<?= esc($to) ?>"></div><div class="col-auto"><button class="btn btn-cyber">Generar</button></div></form></div>
+<div class="row g-3 mb-3"><?php foreach([['Eventos',$events,'primary'],['Alertas',$alerts,'warning'],['Críticas',$critical,'danger'],['Incidentes',$incidents,'info']] as $c): ?><div class="col-6 col-lg-3"><div class="metric-card"><div class="metric-label"><?= $c[0] ?></div><div class="metric-value text-<?= $c[2] ?>"><?= $c[1] ?></div></div></div><?php endforeach; ?></div>
+<div class="row g-3"><div class="col-lg-7"><div class="panel h-100"><h5>Principales detecciones</h5><div class="table-responsive"><table class="table cyber-table"><thead><tr><th>Regla</th><th>Severidad</th><th>Alertas</th></tr></thead><tbody><?php foreach($byRule as $r): ?><tr><td><?= esc($r['name']) ?></td><td><span class="badge text-bg-<?= severity_badge($r['severity']) ?>"><?= strtoupper($r['severity']) ?></span></td><td><?= (int)$r['total'] ?></td></tr><?php endforeach; ?></tbody></table></div></div></div><div class="col-lg-5"><div class="panel h-100"><h5>IP con mayor actividad</h5><div class="table-responsive"><table class="table cyber-table"><thead><tr><th>IP</th><th>Alertas</th><th>Eventos</th></tr></thead><tbody><?php foreach($topIp as $r): ?><tr><td><?= esc($r['ip_address']) ?></td><td><?= (int)$r['alerts'] ?></td><td><?= (int)$r['events'] ?></td></tr><?php endforeach; ?></tbody></table></div></div></div></div>
+<div class="panel mt-3"><h5>Estado de incidentes</h5><div class="d-flex flex-wrap gap-3"><?php foreach($incStatus as $s): ?><div class="metric-card" style="min-width:160px"><div class="metric-label"><?= esc(human_status($s['status'])) ?></div><div class="metric-value"><?= (int)$s['total'] ?></div></div><?php endforeach; ?><?php if(!$incStatus): ?><span class="text-secondary">Sin incidentes en el período.</span><?php endif; ?></div></div>
+<?php require __DIR__.'/includes/footer.php'; ?>
