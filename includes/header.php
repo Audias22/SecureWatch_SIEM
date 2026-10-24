@@ -43,7 +43,7 @@ $roleName = ['admin'=>'Administrador','analyst'=>'Analista','auditor'=>'Auditor'
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= esc($title ?? APP_NAME) ?> · <?= APP_NAME ?></title>
     <link href="assets/vendor/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="<?= asset('assets/css/style.css') ?>">
 </head>
 <body>
 <header class="topbar">

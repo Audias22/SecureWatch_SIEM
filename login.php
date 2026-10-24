@@ -45,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 <!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Acceso | SecureWatch SIEM</title><link href="assets/vendor/bootstrap.min.css" rel="stylesheet"><link rel="stylesheet" href="assets/css/style.css"></head>
+<title>Acceso | SecureWatch SIEM</title><link href="assets/vendor/bootstrap.min.css" rel="stylesheet"><link rel="stylesheet" href="<?= asset('assets/css/style.css') ?>"></head>
 <body class="login-body">
 <div class="login-card">
   <div class="text-center mb-4"><div class="login-shield">SW</div><h1>SecureWatch SIEM</h1><p>Centro de monitoreo y auditoría de seguridad</p></div>
@@ -58,4 +58,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <button class="btn btn-cyber w-100">Ingresar</button>
   </form>
   <div class="login-foot"><span>Acceso restringido</span><span>Toda actividad queda registrada</span></div>
-</div><script src="assets/js/app.js"></script></body></html>
+</div><script src="<?= asset('assets/js/app.js') ?>"></script></body></html>

@@ -37,3 +37,10 @@ document.querySelectorAll('input[type="password"]').forEach(function (input) {
 
 // La terminal del colector muestra primero las líneas más recientes (al final).
 document.querySelectorAll('pre.term').forEach(function (t) { t.scrollTop = t.scrollHeight; });
+
+// Filas de tabla que llevan a otra página (data-href). Cada fila lleva a SU propio destino.
+document.addEventListener('click', function (e) {
+  var tr = e.target.closest('tr[data-href]');
+  if (!tr || e.target.closest('a, button, input, select, summary')) return;
+  window.location.href = tr.getAttribute('data-href');
+});
