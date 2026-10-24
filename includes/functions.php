@@ -137,6 +137,7 @@ function default_event_severity(string $eventType): string
         'LOGIN_FAILED', 'ACCESS_DENIED', 'ACCESS_DENIED_ADMIN' => 'medium',
         'ADMIN_ACTION', 'ROLE_CHANGED', 'PERMISSION_CHANGED', 'USER_DELETED' => 'medium',
         'DATA_EXPORT', 'PASSWORD_RESET', 'ROUTER_CONFIG_CHANGE', 'API_AUTH_FAILED', 'LOGIN_BLOCKED' => 'medium',
+        'PRICE_CHANGED', 'SALE_VOIDED', 'INVENTORY_ADJUSTMENT', 'PASSWORD_RESET_INVALID_TOKEN', 'PASSWORD_CHANGE_FAILED' => 'medium',
         default => 'low',
     };
 }
@@ -371,6 +372,13 @@ function suspicious_route(string $endpoint): bool
     return false;
 }
 
+/** Metadata que envió la fuente (se guarda dentro de "client" en el evento). */
+function event_client_meta(array $event): array
+{
+    $m = json_decode((string)($event['metadata'] ?? ''), true);
+    return is_array($m['client'] ?? null) ? $m['client'] : [];
+}
+
 function evaluate_rules(PDO $pdo, int $eventId): array
 {
     $stmt = $pdo->prepare('SELECT * FROM events WHERE id=?');
@@ -510,6 +518,66 @@ function evaluate_rules(PDO $pdo, int $eventId): array
             if (count($ports) >= $threshold) {
                 $evidence = array_map('intval', array_column($rows,'id'));
                 $title = 'Posible escaneo de puertos desde ' . $ip . ' (' . count($ports) . ' puertos)';
+                $context = implode('|', [$key,$source,$ip]);
+            }
+        }
+
+        // ---- Reglas de negocio del portal (ventas e inventario) ----
+        if ($key === 'PRICE_MANIPULATION' && $eventType === 'PRICE_CHANGED') {
+            $m = event_client_meta($event);
+            $drop = -(float)($m['variacion_pct'] ?? 0);
+            if ($drop >= $threshold) {
+                $title = sprintf('Rebaja de precio de %.0f%% en %s por %s', $drop, (string)($m['codigo'] ?? '?'), $username);
+                $context = implode('|', [$key,$source,(string)($m['codigo'] ?? ''),$username]);
+                $evidence = [$eventId];
+            }
+        }
+
+        if ($key === 'PRICE_DROP_SALE' && $eventType === 'SALE_CREATED') {
+            $codes = array_column((array)(event_client_meta($event)['items'] ?? []), 'codigo');
+            if ($codes) {
+                $q = $pdo->prepare("SELECT id, username, metadata FROM events WHERE event_type='PRICE_CHANGED' AND source_key=?
+                    AND created_at >= DATE_SUB(?, INTERVAL {$window} MINUTE) AND created_at <= ? ORDER BY id");
+                $q->execute([$source, $event['created_at'], $event['created_at']]);
+                foreach ($q->fetchAll() as $pc) {
+                    $m = event_client_meta($pc);
+                    $drop = -(float)($m['variacion_pct'] ?? 0);
+                    if (in_array($m['codigo'] ?? null, $codes, true) && $drop >= $threshold) {
+                        $evidence[] = (int)$pc['id'];
+                        $title = sprintf('Venta de %s poco después de rebajar su precio %.0f%% (rebaja: %s, venta: %s)',
+                            (string)$m['codigo'], $drop, (string)$pc['username'], $username);
+                        $context = implode('|', [$key,$source,(string)$m['codigo']]);
+                    }
+                }
+            }
+        }
+
+        if ($key === 'VOID_ABUSE' && $eventType === 'SALE_VOIDED') {
+            $q = $pdo->prepare("SELECT id FROM events WHERE event_type='SALE_VOIDED' AND source_key=? AND username <=> ?
+                AND created_at >= DATE_SUB(?, INTERVAL {$window} MINUTE) AND created_at <= ? ORDER BY id");
+            $q->execute([$source, $event['username'], $event['created_at'], $event['created_at']]);
+            $ids = array_map('intval', array_column($q->fetchAll(), 'id'));
+            if (count($ids) >= $threshold) {
+                $evidence = $ids;
+                $title = 'Anulaciones de ventas repetidas por ' . $username . ' (' . count($ids) . ')';
+                $context = implode('|', [$key,$source,$username]);
+            }
+        }
+
+        if ($key === 'NEGATIVE_ADJUSTMENT' && $eventType === 'INVENTORY_ADJUSTMENT') {
+            $m = event_client_meta($event);
+            $qty = (int)($m['cantidad'] ?? 0);
+            if ($qty <= -$threshold) {
+                $title = sprintf('Ajuste de inventario de %d unidades en %s por %s', $qty, (string)($m['codigo'] ?? '?'), $username);
+                $context = implode('|', [$key,$source,(string)($m['codigo'] ?? ''),(string)$eventId]);
+                $evidence = [$eventId];
+            }
+        }
+
+        if ($key === 'RESET_ABUSE' && in_array($eventType, ['PASSWORD_RESET_REQUEST','PASSWORD_RESET_INVALID_TOKEN'], true)) {
+            $evidence = event_ids_for_window($pdo, $event, ['PASSWORD_RESET_REQUEST','PASSWORD_RESET_INVALID_TOKEN'], $window, false);
+            if (count($evidence) >= $threshold) {
+                $title = 'Abuso de recuperación de contraseña desde ' . $ip;
                 $context = implode('|', [$key,$source,$ip]);
             }
         }

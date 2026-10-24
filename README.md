@@ -14,7 +14,7 @@ MikroTik RB2011iLS-IN      192.168.88.1   ── Syslog UDP 514 ──┐
 PC 1 (SIEM + portal web)   192.168.88.254 ◄───────────────────┘
 ```
 
-- **Portal web** (sitio monitoreado): envía sus eventos a `api/events.php` con una API Key.
+- **Portal web** (sitio monitoreado, [repositorio aparte](https://github.com/Audias22/Portal_Ferreteria_LaMontana)): envía sus eventos a `api/events.php` con una API Key.
 - **MikroTik**: envía sus logs por Syslog; el colector los interpreta y los registra.
 - **SecureWatch**: guarda, correlaciona, alerta y documenta.
 
@@ -23,6 +23,7 @@ PC 1 (SIEM + portal web)   192.168.88.254 ◄───────────�
 | Origen | Detecciones |
 |---|---|
 | Portal web | Fuerza bruta, password spraying, SQL Injection, XSS, Path Traversal, escaneo de rutas, accesos denegados, exportación masiva |
+| Portal web (negocio) | Rebaja de precio sospechosa, venta poco después de rebajar el precio, anulaciones repetidas, ajustes negativos de inventario, abuso de recuperación de contraseña |
 | MikroTik | Login fallido y exitoso al router, cambios de configuración, escaneo de puertos, DHCP, enlaces |
 | El propio SIEM | Intentos de login, cambios de contraseña, cambios de reglas, envíos de eventos no autorizados |
 
@@ -39,7 +40,7 @@ PC 1 (SIEM + portal web)   192.168.88.254 ◄───────────�
 
 1. Copiar la carpeta a `C:\xampp\htdocs\SecureWatch_SIEM`.
 2. En phpMyAdmin importar `database/securewatch.sql`.
-3. Abrir `database/laboratorio_v2.sql`, cambiar `CAMBIE_ESTA_CLAVE` por una clave propia e importarlo.
+3. Abrir `database/laboratorio_v2.sql`, cambiar `CAMBIE_ESTA_CLAVE` por una clave propia e importarlo. Después importar `database/laboratorio_v3.sql` (reglas del portal).
 4. Copiar `config/database.example.php` como `config/database.php` y poner la misma clave en `DB_PASS`. Si MySQL no usa el puerto 3306, ajustar `DB_PORT`.
 5. Entrar a `http://127.0.0.1/SecureWatch_SIEM/` con `admin` / `Admin123!` y **cambiar la contraseña** en *Mi cuenta*.
 
