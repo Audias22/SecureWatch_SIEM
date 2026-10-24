@@ -10,6 +10,10 @@ if (!$collector['running'] && in_array($user['role'] ?? '', ['admin','analyst'],
     && empty($collector['stopped_by_user']) && collector_launch()) {
     $collectorStarting = true;
 }
+// Respaldo automático: uno por día, la primera vez que entra un administrador.
+if (($user['role'] ?? '') === 'admin') {
+    try { backup_auto(db()); } catch (Throwable $e) {}
+}
 
 /** Íconos de línea (SVG en el propio HTML, sin librerías externas). */
 function nav_icon(string $name): string
@@ -24,6 +28,8 @@ function nav_icon(string $name): string
         'integridad' => '<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6l-8-3z"/><path d="m9 12 2 2 4-4"/>',
         'simulador'  => '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3"/><path d="M7.5 15h9"/>',
         'reglas'     => '<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
+        'bloqueos'   => '<circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/>',
+        'respaldos'  => '<ellipse cx="12" cy="5.5" rx="8" ry="2.5"/><path d="M4 5.5v6c0 1.4 3.6 2.5 8 2.5s8-1.1 8-2.5v-6"/><path d="M4 11.5v6c0 1.4 3.6 2.5 8 2.5s8-1.1 8-2.5v-6"/>',
         'usuarios'   => '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6.5 6.5 0 0 1 3.5 5.5"/>',
     ][$name] ?? '';
     return '<svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . $p . '</svg>';
@@ -65,6 +71,7 @@ $roleName = ['admin'=>'Administrador','analyst'=>'Analista','auditor'=>'Auditor'
 
   <div class="side-title">Respuesta</div>
   <?= nav_link('incidentes.php','incidentes','Incidentes',$current) ?>
+  <?= nav_link('bloqueos.php','bloqueos','Bloqueo de IP',$current) ?>
   <?= nav_link('reportes.php','reportes','Reportes',$current) ?>
   <?php if (in_array($role, ['admin','auditor'], true)): ?><?= nav_link('integridad.php','integridad','Integridad',$current) ?><?php endif; ?>
 
@@ -77,6 +84,7 @@ $roleName = ['admin'=>'Administrador','analyst'=>'Analista','auditor'=>'Auditor'
   <div class="side-title">Administración</div>
   <?= nav_link('reglas.php','reglas','Reglas',$current) ?>
   <?= nav_link('usuarios.php','usuarios','Usuarios',$current) ?>
+  <?= nav_link('respaldos.php','respaldos','Respaldos',$current) ?>
   <?php endif; ?>
 </nav>
 <main class="content">

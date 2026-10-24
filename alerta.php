@@ -3,7 +3,7 @@ declare(strict_types=1);
 require_once __DIR__.'/includes/auth.php'; require_login();
 require_once __DIR__.'/includes/functions.php';
 $pdo=db(); $id=(int)($_GET['id']??0); $title='Detalle de alerta';
-$st=$pdo->prepare("SELECT a.*, r.name rule_name, r.rule_key, r.description rule_desc, r.threshold_value, r.window_minutes,
+$st=$pdo->prepare("SELECT a.*, r.name rule_name, r.rule_key, r.description rule_desc, r.threshold_value, r.window_minutes, r.mitre_id, r.mitre_name, r.mitre_tactic,
   e.source_key, e.ip_address, e.username, e.is_simulation,
   (SELECT id FROM incidents i WHERE i.alert_id=a.id LIMIT 1) incident_id
   FROM alerts a JOIN rules r ON r.id=a.rule_id JOIN events e ON e.id=a.event_id WHERE a.id=?");
@@ -13,8 +13,12 @@ $ev=$pdo->prepare('SELECT e.* FROM alert_events ae JOIN events e ON e.id=ae.even
 $ev->execute([$id]); $evidence=$ev->fetchAll();
 $first=$evidence[0]['created_at']??$a['created_at']; $last=$evidence?end($evidence)['created_at']:$a['created_at'];
 $canAct=in_array(current_user()['role'],['admin','analyst'],true);
+$aip=(string)$a['ip_address']; $block=filter_var($aip,FILTER_VALIDATE_IP)?ip_block_of($pdo,$aip):null;
+$canBlock=$canAct && !$block && filter_var($aip,FILTER_VALIDATE_IP,FILTER_FLAG_IPV4) && !in_array($aip,protected_ips(),true);
+$flash=$_SESSION['flash']??null; unset($_SESSION['flash']);
 require __DIR__.'/includes/header.php'; ?>
-<div class="page-head"><div><div class="small-muted mb-1"><a href="alertas.php?view=all&amp;rule=<?= urlencode($a['rule_key']) ?>">Regla: <?= esc($a['rule_name']) ?></a></div><h2><?= esc($a['title']) ?><?= sim_badge($a['is_simulation']) ?></h2><p><?= esc($a['rule_desc']) ?></p></div><a href="alertas.php" class="btn btn-sm btn-ghost">Volver</a></div>
+<?php if($flash): ?><div class="alert alert-<?= esc($flash[0]) ?>"><?= esc($flash[1]) ?></div><?php endif; ?>
+<div class="page-head"><div><div class="small-muted mb-1"><a href="alertas.php?view=all&amp;rule=<?= urlencode($a['rule_key']) ?>">Regla: <?= esc($a['rule_name']) ?></a> <?= mitre_tag($a['mitre_id'],$a['mitre_name'],$a['mitre_tactic']) ?><?php if($a['mitre_tactic']): ?> <span class="small-muted"><?= esc($a['mitre_tactic']) ?></span><?php endif; ?></div><h2><?= esc($a['title']) ?><?= sim_badge($a['is_simulation']) ?></h2><p><?= esc($a['rule_desc']) ?></p></div><a href="alertas.php" class="btn btn-sm btn-ghost">Volver</a></div>
 <div class="row g-3 mb-3">
  <div class="col-lg-8"><div class="panel h-100"><div class="d-flex justify-content-between flex-wrap gap-2 mb-3"><div><span class="badge text-bg-<?= severity_badge($a['severity']) ?>"><?= strtoupper($a['severity']) ?></span> <span class="badge text-bg-<?= status_badge($a['status']) ?>"><?= esc(human_status($a['status'])) ?></span></div><div class="risk-number">RISK <?= (int)$a['risk_score'] ?>/100</div></div>
   <div class="row g-3 small">
@@ -35,6 +39,14 @@ require __DIR__.'/includes/header.php'; ?>
    <button name="action" value="false_positive" class="btn btn-sm btn-outline-secondary">Falso positivo</button>
   </form>
   <?php else: ?><p class="small text-secondary">Alerta <?= esc(strtolower(human_status($a['status']))) ?><?= $a['resolved_at']?' el '.esc($a['resolved_at']):'' ?>.</p><?php endif; ?>
+  <hr class="my-3">
+  <?php if($block): ?><p class="small mb-0"><span class="badge text-bg-danger">IP BLOQUEADA</span> <?= esc($aip) ?> <?= $block['expires_at']?'hasta '.esc($block['expires_at']):'sin vencimiento' ?>. <a href="bloqueos.php">Ver bloqueos</a></p>
+  <?php elseif($canBlock): ?>
+  <form method="post" action="bloqueos.php" class="d-flex gap-2 flex-wrap align-items-center" data-confirm="Se bloqueará <?= esc($aip) ?> en el router y en el portal. ¿Continuar?"><input type="hidden" name="csrf_token" value="<?= csrf_token() ?>"><input type="hidden" name="action" value="block"><input type="hidden" name="ip" value="<?= esc($aip) ?>"><input type="hidden" name="alert_id" value="<?= (int)$a['id'] ?>"><input type="hidden" name="back" value="alerta.php?id=<?= (int)$a['id'] ?>"><input type="hidden" name="reason" value="<?= esc(mb_substr('Alerta #'.$a['id'].': '.$a['title'],0,255)) ?>">
+   <select name="hours" class="form-select form-select-sm w-auto"><option value="1">1 hora</option><option value="24" selected>24 horas</option><option value="168">7 días</option><option value="0">Sin vencimiento</option></select>
+   <button class="btn btn-sm btn-outline-danger">Bloquear <?= esc($aip) ?></button></form>
+  <p class="small-muted mt-2 mb-0">El MikroTik y el portal dejan de aceptar tráfico de esta IP en menos de un minuto.</p>
+  <?php endif; ?>
  </div></div>
 </div>
 <div class="panel"><h5>Evidencia <span class="badge text-bg-secondary"><?= count($evidence) ?></span></h5>

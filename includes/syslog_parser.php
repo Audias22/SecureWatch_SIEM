@@ -14,7 +14,7 @@ declare(strict_types=1);
  */
 
 const ROUTEROS_TOPICS = [
-    'system','info','error','warning','critical','debug','account','firewall','dhcp','interface','script',
+    'system','info','error','warning','critical','debug','fetch','account','firewall','dhcp','interface','script',
     'wireless','ppp','pppoe','ovpn','l2tp','pptp','sstp','hotspot','ospf','bgp','rip','route','dns','ntp',
     'e-mail','web-proxy','caps','manager','packet','raw','read','write','ipsec','bridge','stp','lte','health',
     'watchdog','ssh','telnet','async','certificate','radius','snmp','upnp','vrrp','store','event','backup',
@@ -133,6 +133,14 @@ function routeros_parse(string $raw, string $senderIp): array
         $out = array_merge($out, ['event_type'=>$up ? 'INTERFACE_UP' : 'INTERFACE_DOWN','result'=>'INFO','severity'=>$up ? 'low' : 'medium',
             'endpoint'=>$m[1],'description'=>'Interfaz ' . $m[1] . ($up ? ' conectada' : ' desconectada')]);
         $out['metadata']['interface'] = $m[1];
+        return $out;
+    }
+
+    // 4d-bis. Cambios hechos por el script de bloqueo de SecureWatch (no es un cambio manual de un administrador).
+    if (preg_match('/address.?list entry (added|removed) by .*(scheduler|script|securewatch)/i', $msg, $m)) {
+        $added = strtolower($m[1]) === 'added';
+        $out = array_merge($out, ['event_type'=>'ROUTER_BLOCKLIST_SYNC','result'=>'SUCCESS','severity'=>'low',
+            'description'=>'El router aplicó la lista de bloqueo de SecureWatch: entrada ' . ($added ? 'agregada' : 'eliminada')]);
         return $out;
     }
 

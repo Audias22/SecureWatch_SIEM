@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/evidence.php';
+require_once __DIR__ . '/response.php';
 
 function client_ip(): string
 {
@@ -600,6 +601,29 @@ function evaluate_rules(PDO $pdo, int $eventId): array
 
         if ($title !== null && $context !== '') {
             $createdAlertIds[] = create_or_update_alert($pdo, $rule, $event, $title, $context, $evidence);
+        }
+    }
+
+    // ---- Correlación entre fuentes: la misma IP con alertas en el router y en el portal ----
+    $multi = null;
+    foreach ($rules as $r) if ($r['rule_key'] === 'MULTI_STAGE') $multi = $r;
+    if ($multi && $createdAlertIds && filter_var($ip, FILTER_VALIDATE_IP) && !in_array($ip, ['127.0.0.1','::1','0.0.0.0'], true)) {
+        $window = max(1, (int)$multi['window_minutes']);
+        $q = $pdo->prepare("SELECT a.id alert_id, r.name rule_name, e.source_key, MIN(e.id) first_event, MIN(e.created_at) first_at
+            FROM alert_events ae JOIN alerts a ON a.id=ae.alert_id JOIN rules r ON r.id=a.rule_id JOIN events e ON e.id=ae.event_id
+            WHERE e.ip_address=? AND a.rule_id<>? AND a.status<>'false_positive'
+              AND e.created_at >= DATE_SUB(?, INTERVAL {$window} MINUTE) AND e.created_at <= ?
+            GROUP BY a.id, r.name, e.source_key ORDER BY first_at");
+        $q->execute([$ip, (int)$multi['id'], $event['created_at'], $event['created_at']]);
+        $rows = $q->fetchAll();
+        $sources = array_values(array_unique(array_column($rows, 'source_key')));
+        if (count($sources) >= max(2, (int)$multi['threshold_value'])) {
+            $stages = array_values(array_unique(array_column($rows, 'rule_name')));
+            $title = 'Ataque en varias etapas desde ' . $ip . ': ' . implode(' → ', array_slice($stages, 0, 4));
+            $mid = create_or_update_alert($pdo, $multi, $event, $title, 'MULTI_STAGE|' . $ip,
+                array_map('intval', array_column($rows, 'first_event')));
+            $pdo->prepare('UPDATE alerts SET title=? WHERE id=?')->execute([mb_substr($title, 0, 255), $mid]);
+            $createdAlertIds[] = $mid;
         }
     }
 

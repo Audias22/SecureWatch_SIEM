@@ -26,6 +26,14 @@ PC 1 (SIEM + portal web)   192.168.88.254 ◄───────────�
 | Portal web (negocio) | Rebaja de precio sospechosa, venta poco después de rebajar el precio, anulaciones repetidas, ajustes negativos de inventario, abuso de recuperación de contraseña |
 | MikroTik | Login fallido y exitoso al router, cambios de configuración, escaneo de puertos, DHCP, enlaces |
 | El propio SIEM | Intentos de login, cambios de contraseña, cambios de reglas, envíos de eventos no autorizados |
+| Correlación | **Ataque en varias etapas**: la misma IP genera alertas en el router y en el portal (por ejemplo, escaneo de puertos y luego SQL Injection) |
+
+Cada regla está asociada a su técnica de **MITRE ATT&CK** (por ejemplo T1110.001, T1190, T1046). La página *Reglas* muestra la cobertura por táctica.
+
+## Respuesta
+
+- **Bloqueo de IP**: desde una alerta o desde *Bloqueo de IP* se bloquea una IP por 1 hora, 24 horas, 7 días o sin vencimiento. El MikroTik consulta la lista cada minuto y descarta su tráfico (address-list `SW-BLOQUEO`); el portal también la consulta y responde *Acceso bloqueado*. No se pueden bloquear el router, el servidor ni el equipo del propio analista.
+- **Incidentes** con historial, notas y reporte imprimible.
 
 ## Seguridad del propio SIEM
 
@@ -35,12 +43,13 @@ PC 1 (SIEM + portal web)   192.168.88.254 ◄───────────�
 - La hora de cada evento es la del servidor, no la que manda la fuente.
 - Los eventos del simulador quedan marcados como **SIMULADO** y no se mezclan con la evidencia real.
 - Encabezados HTTP de seguridad (CSP, X-Frame-Options, nosniff).
+- Respaldo automático diario de la base de datos (se guardan los últimos 7, con su SHA-256) y respaldo manual en *Respaldos*.
 
 ## Instalación (XAMPP en Windows)
 
 1. Copiar la carpeta a `C:\xampp\htdocs\SecureWatch_SIEM`.
 2. En phpMyAdmin importar `database/securewatch.sql`.
-3. Abrir `database/laboratorio_v2.sql`, cambiar `CAMBIE_ESTA_CLAVE` por una clave propia e importarlo. Después importar `database/laboratorio_v3.sql` (reglas del portal).
+3. Abrir `database/laboratorio_v2.sql`, cambiar `CAMBIE_ESTA_CLAVE` por una clave propia e importarlo. Después importar `database/laboratorio_v3.sql` (reglas del portal) y `database/laboratorio_v4.sql` (MITRE ATT&CK, correlación y bloqueo de IP).
 4. Copiar `config/database.example.php` como `config/database.php` y poner la misma clave en `DB_PASS`. Si MySQL no usa el puerto 3306, ajustar `DB_PORT`.
 5. Entrar a `http://127.0.0.1/SecureWatch_SIEM/` con `admin` / `Admin123!` y **cambiar la contraseña** en *Mi cuenta*.
 
@@ -53,6 +62,8 @@ PC 1 (SIEM + portal web)   192.168.88.254 ◄───────────�
 /system logging add topics=error action=remote
 /ip firewall filter add chain=input protocol=tcp connection-state=new in-interface-list=LAN action=log log-prefix="SW-IN-NEW" place-before=0
 ```
+
+Para el bloqueo de IP, en SecureWatch → *Bloqueo de IP* → **Generar comandos para el router** y pegarlos en la terminal de WinBox.
 
 La IP del router autorizada para enviar logs se configura en `collector/syslog_collector.php` (`SYSLOG_ALLOWED_SENDERS`).
 
@@ -83,7 +94,7 @@ Las fuentes y sus API Keys se administran en **Fuentes**. Más detalle en `INTEG
 ## Estructura
 
 ```text
-api/            receptor de eventos y estado de la API
+api/            receptor de eventos, lista de bloqueo y estado de la API
 collector/      colector Syslog del MikroTik
 config/         conexión a la base de datos (database.php no se sube al repo)
 database/       scripts SQL

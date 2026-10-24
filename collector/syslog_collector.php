@@ -180,6 +180,9 @@ while (true) {
     }
 
     $ev = routeros_parse($data, $senderIp);
+    // Las consultas del router a la lista de bloqueo (tema "fetch") se repiten cada minuto:
+    // quedan en la evidencia cruda, pero no se registran como eventos.
+    if (in_array('fetch', explode(',', (string)($ev['metadata']['topics'] ?? '')), true)) continue;
     for ($attempt = 1; $attempt <= 2; $attempt++) {
         try {
             $pdo = db();

@@ -19,7 +19,7 @@ if($fSev){$where[]='a.severity=?';$params[]=$fSev;}
 if($fFrom){$where[]='a.created_at>=?';$params[]=$fFrom.' 00:00:00';}
 if($fTo){$where[]='a.created_at<=?';$params[]=$fTo.' 23:59:59';}
 if($fIp){$where[]='e.ip_address=?';$params[]=$fIp;}
-$st=$pdo->prepare("SELECT a.*, r.name rule_name, e.username, e.ip_address, e.source_key, e.endpoint, e.is_simulation,
+$st=$pdo->prepare("SELECT a.*, r.name rule_name, r.mitre_id, r.mitre_name, r.mitre_tactic, e.username, e.ip_address, e.source_key, e.endpoint, e.is_simulation,
  (SELECT COUNT(*) FROM alert_events ae WHERE ae.alert_id=a.id) evidence_count,
  (SELECT id FROM incidents i WHERE i.alert_id=a.id LIMIT 1) incident_id
  FROM alerts a JOIN rules r ON r.id=a.rule_id JOIN events e ON e.id=a.event_id".($where?' WHERE '.implode(' AND ',$where):'')."
@@ -53,7 +53,7 @@ $canAct=in_array(current_user()['role'],['admin','analyst'],true);
     <strong>RISK <?= (int)$a['risk_score'] ?>/100</strong>
   </div>
   <h5 class="mt-3 mb-2"><a class="title-link" href="alerta.php?id=<?= (int)$a['id'] ?>"><?= esc($a['title']) ?></a></h5>
-  <div class="small text-secondary mb-2">Regla: <?= esc($a['rule_name']) ?></div>
+  <div class="small text-secondary mb-2">Regla: <?= esc($a['rule_name']) ?> <?= mitre_tag($a['mitre_id'],$a['mitre_name'],$a['mitre_tactic']) ?></div>
   <div class="small mb-3">Fuente: <strong><?= esc($a['source_key']) ?></strong> · IP: <strong><?= esc($a['ip_address']) ?></strong> · Usuario: <?= esc($a['username']?:'anonymous') ?></div>
   <div class="small-muted mb-3"><a href="alerta.php?id=<?= (int)$a['id'] ?>"><?= (int)$a['evidence_count'] ?> evento(s) de evidencia</a> · <?= esc($a['created_at']) ?></div>
   <?php if($a['incident_id']): ?><a class="btn btn-sm btn-outline-info" href="incidente_detalle.php?id=<?= (int)$a['incident_id'] ?>">Ver incidente #<?= (int)$a['incident_id'] ?></a><?php endif; ?>
