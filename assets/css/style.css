@@ -277,3 +277,26 @@ code { color: var(--ink-2); background: var(--surface-2); padding: 1px 5px; bord
 a.collector-chip { text-decoration: none; }
 .collector-chip.wait { color: var(--med); border-color: #ecdcae; background: var(--med-bg); }
 .collector-chip.wait i { background: #c79a2b; animation: pulse 1s ease-in-out infinite; }
+
+/* Enlaces y detalle de evidencia */
+a.metric-card, a.metric-link { display: block; text-decoration: none; color: inherit; transition: border-color .15s, box-shadow .15s; }
+a.metric-link:hover { border-color: #b9c9c9; box-shadow: 0 6px 18px -12px rgba(14, 90, 98, .5); }
+.metric-link .metric-sub { color: var(--accent); }
+.title-link { color: var(--ink); text-decoration: none; }
+.title-link:hover { color: var(--accent); text-decoration: underline; }
+tr.row-link { position: relative; cursor: pointer; }
+tr.row-link .stretched-link { color: var(--ink); text-decoration: none; }
+tr.row-link:hover td { background: #f1f6f6; }
+tr.row-link:hover .stretched-link { color: var(--accent); }
+.filter-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.chip { background: var(--accent-soft); color: var(--accent-2); border: 1px solid #c4dada; border-radius: 3px; padding: 2px 8px; font-family: var(--mono); font-size: 11.5px; }
+details.ev-details { margin-top: 4px; }
+details.ev-details summary { cursor: pointer; font-size: 12px; color: var(--accent); list-style: none; }
+details.ev-details summary::before { content: "▸ "; }
+details.ev-details[open] summary::before { content: "▾ "; }
+dl.kv-list { display: grid; grid-template-columns: max-content 1fr; gap: 3px 14px; margin: 6px 0 2px; font-size: 12.5px; }
+dl.kv-list dt { color: var(--muted); font-weight: 400; }
+dl.kv-list dd { margin: 0; font-family: var(--mono); color: var(--ink); word-break: break-word; }
+dl.kv-list.wide { font-size: 13.5px; gap: 7px 18px; }
+.evidence-table td { vertical-align: top; }
+.hash-box { font-family: var(--mono); font-size: 11.5px; word-break: break-all; background: var(--surface-2); border: 1px solid var(--line-soft); border-radius: 4px; padding: 7px 9px; color: var(--ink-2); }
